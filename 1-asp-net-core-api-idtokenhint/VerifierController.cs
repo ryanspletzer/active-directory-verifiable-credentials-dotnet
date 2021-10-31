@@ -126,12 +126,12 @@ namespace AspNetCoreVerifiableCredentials
 
                     HttpResponseMessage res = await client.PostAsync(AppSettings.ApiEndpoint, new StringContent(jsonString, Encoding.UTF8, "application/json"));
                     response = await res.Content.ReadAsStringAsync();
-                    _log.LogTrace("succesfully called Request API");
                     client.Dispose();
                     statusCode = res.StatusCode;
 
                     if (statusCode == HttpStatusCode.Created)
                     {
+                        _log.LogTrace("succesfully called Request API");
                         JObject requestConfig = JObject.Parse(response);
                         requestConfig.Add(new JProperty("id", state));
                         jsonString = JsonConvert.SerializeObject(requestConfig);
@@ -154,7 +154,7 @@ namespace AspNetCoreVerifiableCredentials
                     }
                     else
                     {
-                        _log.LogError("Unsuccesfully called Request API");
+                        _log.LogError("Unsuccesfully called Request API: " + response);
                         return BadRequest(new { error = "400", error_description = "Something went wrong calling the API: " + response });
                     }
                 }

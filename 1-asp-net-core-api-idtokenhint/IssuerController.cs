@@ -184,8 +184,8 @@ namespace AspNetCoreVerifiableCredentials
                     }
                     else
                     {
-                        _log.LogError("Unsuccesfully called Request API");
-                        return BadRequest(new { error = "400", error_description = "Something went wrong calling the API: " + response });
+                        _log.LogError("Unsuccesfully called Request API: " + response);
+                        return BadRequest(new { error = statusCode, error_description = "Something went wrong calling the API: " + response });
                     }
 
                 }
