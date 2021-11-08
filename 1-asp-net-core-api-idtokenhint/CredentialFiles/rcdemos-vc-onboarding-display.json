@@ -1,0 +1,30 @@
+{
+    "default": {
+      "locale": "en-US",
+      "card": {
+        "title": "RCDemos employment",
+        "issuedBy": "RCDemosVC",
+        "backgroundColor": "#ffffff",
+        "textColor": "#000000",
+        "logo": {
+          "uri": "https://rcdemosdidstorage.blob.core.windows.net/assets/rcdemos-did.png",
+          "description": "RCDemos Logo"
+        },
+        "description": "Use your RCDemos employee card to prove you are part of our amazing team!."
+      },
+      "consent": {
+        "title": "Do you want to get your RCDemos employee card?",
+        "instructions": "Sign in with your account to get your card."
+      },
+      "claims": {
+        "vc.credentialSubject.firstName": {
+          "type": "String",
+          "label": "First name"
+        },
+        "vc.credentialSubject.lastName": {
+          "type": "String",
+          "label": "Last name"
+        }
+      }
+    }
+  }

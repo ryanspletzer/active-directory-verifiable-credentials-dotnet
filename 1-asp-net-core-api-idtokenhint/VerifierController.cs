@@ -16,6 +16,8 @@ using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Identity.Web;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Graph;
+using Azure.Identity;
 
 namespace AspNetCoreVerifiableCredentials
 {
@@ -28,14 +30,14 @@ namespace AspNetCoreVerifiableCredentials
         protected readonly AppSettingsModel AppSettings;
         protected IMemoryCache _cache;
         protected readonly ILogger<VerifierController> _log;
-        private IHttpClientFactory _httpClientFactory;
 
-        public VerifierController(IOptions<AppSettingsModel> appSettings, IMemoryCache memoryCache, ILogger<VerifierController> log, IHttpClientFactory httpClientFactory)
+
+
+        public VerifierController(IOptions<AppSettingsModel> appSettings, IMemoryCache memoryCache, ILogger<VerifierController> log)
         {
             this.AppSettings = appSettings.Value;
             _cache = memoryCache;
             _log = log;
-            _httpClientFactory = httpClientFactory;
         }
 
         /// <summary>
@@ -107,6 +109,7 @@ namespace AspNetCoreVerifiableCredentials
 
                 jsonString = JsonConvert.SerializeObject(payload);
 
+
                 //CALL REST API WITH PAYLOAD
                 HttpStatusCode statusCode = HttpStatusCode.OK;
                 string response = null;
@@ -114,20 +117,21 @@ namespace AspNetCoreVerifiableCredentials
                 {
                     //The VC Request API is an authenticated API. We need to clientid and secret (or certificate) to create an access token which 
                     //needs to be send as bearer to the VC Request API
-                    var accessToken = await GetAccessToken();
+                    var accessToken = await GetAccessTokenForVCService();
                     if (accessToken.Item1 == String.Empty)
                     {
                         _log.LogError(String.Format("failed to acquire accesstoken: {0} : {1}"), accessToken.error, accessToken.error_description);
                         return BadRequest(new { error = accessToken.error, error_description = accessToken.error_description });
                     }
 
-                    var client = _httpClientFactory.CreateClient();
+                    HttpClient client = new HttpClient();
                     var defaultRequestHeaders = client.DefaultRequestHeaders;
                     defaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", accessToken.token);
 
                     HttpResponseMessage res = await client.PostAsync(AppSettings.ApiEndpoint, new StringContent(jsonString, Encoding.UTF8, "application/json"));
                     response = await res.Content.ReadAsStringAsync();
                     _log.LogTrace("succesfully called Request API");
+                    client.Dispose();
                     statusCode = res.StatusCode;
 
                     if (statusCode == HttpStatusCode.Created)
@@ -204,17 +208,52 @@ namespace AspNetCoreVerifiableCredentials
                 // In this case the result is put in the in memory cache which is used by the UI when polling for the state so the UI can be updated.
                 if (presentationResponse["code"].ToString() == "presentation_verified")
                 {
+                    //Start of logic to issue a tap
+                    //Step 1 : Look up the user based on information in the VC in Azure AD. Here, you need to put your own lookup logi to find the user 
+                    //for sample purposes, we are going with a simple match in first name and last name
+                    //TODO: check other information from the VC and compare against HR system (e.g. street address)
+
+                    string firstName = presentationResponse["issuers"][0]["claims"]["firstName"].ToString();
+                    string lastName = presentationResponse["issuers"][0]["claims"]["lastName"].ToString();
+
+                    var mgClient = GetGraphClient();
+                    var userFound = await mgClient.Users
+                        .Request()
+                        .Filter($"givenName eq '{firstName}' and surname eq '{lastName}'")
+                        .GetAsync();
+
+                    var userObjectId = userFound[0].Id;
+                    var userUPN = userFound[0].UserPrincipalName;
+
+                    //Cherry on top, get the user's photo, any other information 
+
+
+
+
+                    //Step 2: Issue the TAP
+                    //TODO: code below will fail if the user already has a TAP. Handle that case
+
+                    var temporaryAccessPassAuthenticationMethod = new TemporaryAccessPassAuthenticationMethod();
+                    var tapResult = await mgClient.Users[userObjectId].Authentication.TemporaryAccessPassMethods
+                        .Request()
+                        .AddAsync(temporaryAccessPassAuthenticationMethod);
+
+                    var tapValue = tapResult.TemporaryAccessPass;
+
                     var cacheData = new
                     {
                         status = "presentation_verified",
-                        message = "Presentation verified",
-                        payload = presentationResponse["issuers"].ToString(),
-                        subject = presentationResponse["subject"].ToString(),
-                        firstName = presentationResponse["issuers"][0]["claims"]["firstName"].ToString(),
-                        lastName = presentationResponse["issuers"][0]["claims"]["lastName"].ToString()
-
+                        message = $"Welcome aboard, {firstName}.",
+                        userFirstName = firstName,
+                        userLastName = lastName,
+                        userUPN = userUPN,
+                        userObjectId = userObjectId,
+                        tap = tapValue,
+                        payload = $"userUPN={userUPN}, objectId={userObjectId}, tap={tapValue}"
+                        //userFoundPayloadDeleteMe = JsonConvert.SerializeObject(userFound)
                     };
                     _cache.Set(state, JsonConvert.SerializeObject(cacheData));
+
 
                 }
 
@@ -262,8 +301,103 @@ namespace AspNetCoreVerifiableCredentials
 
         }
 
+        [HttpGet("/api/verifier/account-set-up")]
+        public async Task<ActionResult> AccountSetupDone()
+        {
+            try
+
+            {
+                //retrieve the right cache from state
+
+                string state = this.Request.Query["id"];
+                if (string.IsNullOrEmpty(state))
+                {
+                    return BadRequest(new { error = "400", error_description = "Missing argument 'id'" });
+                }
+                JObject value = null;
+                if (_cache.TryGetValue(state, out string buf))
+                {
+                    value = JObject.Parse(buf);
+                    string targetUserObjectId = value["userObjectId"].ToString(); //TODO: Figure this out
+
+                    var mgClient = GetGraphClient();
+
+                    var authenticatorAppResult = await mgClient.Users[targetUserObjectId].Authentication.MicrosoftAuthenticatorMethods
+                                .Request()
+                                .GetAsync();
+
+                    //TODO: after authenticator app is added to the user, you can consider manipulating group membership to 
+                    //'unblock' the account from 
+
+
+                    if (authenticatorAppResult != null && authenticatorAppResult.Count > 0)
+                    {
+                        var cacheData = new
+                        {
+                            deviceDisplayName = authenticatorAppResult[0].DisplayName,
+                            deviceTag = authenticatorAppResult[0].DeviceTag,
+                            phoneAppVersion = authenticatorAppResult[0].PhoneAppVersion,
+                            status = "account_setup_done",
+                            message = $"Authenticator App Phone Sign In configured in Device: {authenticatorAppResult[0].DisplayName} - Platform: {authenticatorAppResult[0].DeviceTag}"
+                        };
+
+                        return new ContentResult { ContentType = "application/json", Content = JsonConvert.SerializeObject(cacheData) };
+                    }
+                    else
+                    {
+                        var cacheData = new
+                        {
+                            status = "account_setup_in_progress",
+                            message = "Waiting for account set up"
+                        };
+                        return new ContentResult { ContentType = "application/json", Content = JsonConvert.SerializeObject(cacheData) };
+                    }
+                }
+                return new OkResult();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { error = "400", error_description = ex.Message });
+            }
+        }
+
         //some helper functions
-        protected async Task<(string token, string error, string error_description)> GetAccessToken()
+
+        protected async Task<(string token, string error, string error_description)> GetAccessTokenForVCService()
+        {
+            var coreTask = await GetAccessTokenCommon(AppSettings.VCServiceScope);
+            return coreTask;
+        }
+
+        protected GraphServiceClient GetGraphClient()
+        {
+            // The client credentials flow requires that you request the
+            // /.default scope, and preconfigure your permissions on the
+            // app registration in Azure. An administrator must grant consent
+            // to those permissions beforehand.
+            var scopes = new[] { "https://graph.microsoft.com/.default" };
+
+            // Multi-tenant apps can use "common",
+            // single-tenant apps must use the tenant ID from the Azure portal
+            var tenantId = AppSettings.TenantId;
+
+            // Values from app registration
+            var clientId = AppSettings.ClientId;
+            var clientSecret = AppSettings.ClientSecret;
+
+            // using Azure.Identity;
+            var options = new TokenCredentialOptions
+            {
+                AuthorityHost = AzureAuthorityHosts.AzurePublicCloud
+            };
+
+            var clientSecretCredential = new ClientSecretCredential(
+                tenantId, clientId, clientSecret, options);
+
+            return new GraphServiceClient(clientSecretCredential, scopes);
+        }
+
+        protected async Task<(string token, string error, string error_description)> GetAccessTokenCommon(string tokenScopes)
         {
             // You can run this sample using ClientSecret or Certificate. The code will differ only when instantiating the IConfidentialClientApplication
             bool isUsingClientSecret = AppSettings.AppUsesClientSecret(AppSettings);
@@ -298,7 +432,7 @@ namespace AspNetCoreVerifiableCredentials
             // With client credentials flows the scopes is ALWAYS of the shape "resource/.default", as the 
             // application permissions need to be set statically (in the portal or by PowerShell), and then granted by
             // a tenant administrator. 
-            string[] scopes = new string[] { AppSettings.VCServiceScope };
+            string[] scopes = new string[] { tokenScopes };
 
             AuthenticationResult result = null;
             try

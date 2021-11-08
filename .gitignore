@@ -348,3 +348,15 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# ignore (private) dev settings
+appsettings.[Dd]evelopment.json
+
+#ignore Visual Studio local config
+.config/
+
+#ignore Azure deployment profiles
+PublishProfiles/
+ServiceDependencies/
+
+

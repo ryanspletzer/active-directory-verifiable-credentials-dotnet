@@ -1,6 +1,6 @@
 body {
-    font-family: sans-serif;
-    background-color: #E0E0E0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: white;
 }
 #wrap {
     margin: 0 auto;
@@ -90,5 +90,56 @@ body {
 }
 
 #subject {
+    font-size: 1.5em;
+}
+
+.monospacedText {
+    background-color: #0000;
+    border: black;
+    color: black;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 8px;
+    display: inline-block;
+    font-size: 24px;
+    font-family: 'consolas'
+}
+
+.waitingForAuthApp {
+    background-color: blue;
+    border: black;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 8px;
+    display: inline-block;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 50px;
+}
+
+.authAppDone {
+    background-color: green;
+    border: black;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    border-radius: 8px;
+    display: inline-block;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 50px;
+}
+
+.skipButton {
+    font-size: 16px;
+    text-decoration: underline;
+    color: blue;
+}
+
+.accountInfo {
     font-size: 1.5em;
 }
