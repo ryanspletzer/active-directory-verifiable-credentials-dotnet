@@ -52,7 +52,7 @@ namespace AspNetCoreVerifiableCredentials
 
                 string jsonString = null;
                 //they payload template is loaded from disk and modified in the code below to make it easier to get started
-                //and having all config in a central location appsettings.json. 
+                //and having all config in a central location appsettings.json.
                 //if you want to manually change the payload in the json file make sure you comment out the code below which will modify it automatically
                 //
                 string payloadpath = Path.Combine(Path.GetDirectoryName(System.Reflection.Assembly.GetEntryAssembly().Location), PRESENTATIONPAYLOAD);
@@ -88,7 +88,8 @@ namespace AspNetCoreVerifiableCredentials
                 //this means only that issuer should be trusted for the requested credentialtype
                 //this value is an array in the payload, you can trust multiple issuers for the same credentialtype
                 //very common to accept the test VCs and the Production VCs coming from different verifiable credential services
-                if (payload["presentation"]["requestedCredentials"][0]["acceptedIssuers"][0] != null)
+                if (payload["presentation"]["requestedCredentials"][0]["acceptedIssuers"] != null &&
+                    payload["presentation"]["requestedCredentials"][0]["acceptedIssuers"][0] != null)
                 {
                     payload["presentation"]["requestedCredentials"][0]["acceptedIssuers"][0] = AppSettings.IssuerAuthority;
                 }
@@ -115,7 +116,7 @@ namespace AspNetCoreVerifiableCredentials
                 string response = null;
                 try
                 {
-                    //The VC Request API is an authenticated API. We need to clientid and secret (or certificate) to create an access token which 
+                    //The VC Request API is an authenticated API. We need to clientid and secret (or certificate) to create an access token which
                     //needs to be send as bearer to the VC Request API
                     var accessToken = await GetAccessTokenForVCService();
                     if (accessToken.Item1 == String.Empty)
@@ -209,7 +210,7 @@ namespace AspNetCoreVerifiableCredentials
                 if (presentationResponse["code"].ToString() == "presentation_verified")
                 {
                     //Start of logic to issue a tap
-                    //Step 1 : Look up the user based on information in the VC in Azure AD. Here, you need to put your own lookup logi to find the user 
+                    //Step 1 : Look up the user based on information in the VC in Azure AD. Here, you need to put your own lookup logi to find the user
                     //for sample purposes, we are going with a simple match in first name and last name
                     //TODO: check other information from the VC and compare against HR system (e.g. street address)
 
@@ -222,10 +223,10 @@ namespace AspNetCoreVerifiableCredentials
                         .Filter($"givenName eq '{firstName}' and surname eq '{lastName}'")
                         .GetAsync();
 
-                    var userObjectId = userFound[0].Id;
-                    var userUPN = userFound[0].UserPrincipalName;
+                    var userObjectId = userFound[1].Id;
+                    var userUPN = userFound[1].UserPrincipalName;
 
-                    //Cherry on top, get the user's photo, any other information 
+                    //Cherry on top, get the user's photo, any other information
 
 
 
@@ -326,8 +327,8 @@ namespace AspNetCoreVerifiableCredentials
                                 .Request()
                                 .GetAsync();
 
-                    //TODO: after authenticator app is added to the user, you can consider manipulating group membership to 
-                    //'unblock' the account from 
+                    //TODO: after authenticator app is added to the user, you can consider manipulating group membership to
+                    //'unblock' the account from
 
 
                     if (authenticatorAppResult != null && authenticatorAppResult.Count > 0)
@@ -429,9 +430,9 @@ namespace AspNetCoreVerifiableCredentials
                 .Configure<LoggerFilterOptions>(options => options.MinLevel = Microsoft.Extensions.Logging.LogLevel.Debug);
             });
 
-            // With client credentials flows the scopes is ALWAYS of the shape "resource/.default", as the 
+            // With client credentials flows the scopes is ALWAYS of the shape "resource/.default", as the
             // application permissions need to be set statically (in the portal or by PowerShell), and then granted by
-            // a tenant administrator. 
+            // a tenant administrator.
             string[] scopes = new string[] { tokenScopes };
 
             AuthenticationResult result = null;
