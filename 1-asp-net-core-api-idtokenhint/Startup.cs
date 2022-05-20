@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using System;
+using System.IO;
 
 namespace AspNetCoreVerifiableCredentials
 {
@@ -62,7 +64,14 @@ namespace AspNetCoreVerifiableCredentials
             }
             app.UseSession();
             app.UseHttpsRedirection();
-            app.UseStaticFiles();
+            app.UseStaticFiles(
+                new StaticFileOptions
+                {
+                    FileProvider = new PhysicalFileProvider(
+                        Path.Combine(env.ContentRootPath, ".well-known")),
+                    RequestPath = "/.well-known"
+                }
+            );
             app.UseRouting();
 
             app.UseEndpoints(endpoints =>
