@@ -64,6 +64,7 @@ namespace AspNetCoreVerifiableCredentials
             }
             app.UseSession();
             app.UseHttpsRedirection();
+            app.UseStaticFiles();
             app.UseStaticFiles(
                 new StaticFileOptions
                 {
