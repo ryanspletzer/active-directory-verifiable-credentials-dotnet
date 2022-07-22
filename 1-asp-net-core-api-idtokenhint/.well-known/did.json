@@ -1,0 +1,48 @@
+{
+    "id": "did:web:adskvcdemo.azurewebsites.net",
+    "@context": [
+        "https://www.w3.org/ns/did/v1",
+        {
+            "@base": "did:web:adskvcdemo.azurewebsites.net"
+        }
+    ],
+    "service": [
+        {
+            "id": "#linkeddomains",
+            "type": "LinkedDomains",
+            "serviceEndpoint": {
+                "origins": [
+                    "https://adskvcdemo.azurewebsites.net/"
+                ]
+            }
+        },
+        {
+            "id": "#hub",
+            "type": "IdentityHub",
+            "serviceEndpoint": {
+                "instances": [
+                    "https://beta.hub.msidentity.com/v1.0/2f27dc7b-6a04-40ce-8145-72c00380f7bd"
+                ]
+            }
+        }
+    ],
+    "verificationMethod": [
+        {
+            "id": "#bfc7b4bbfc76477c875caed917de3b44vcSigningKey-460b7",
+            "controller": "did:web:adskvcdemo.azurewebsites.net",
+            "type": "EcdsaSecp256k1VerificationKey2019",
+            "publicKeyJwk": {
+                "crv": "secp256k1",
+                "kty": "EC",
+                "x": "iPd6e461P-bH0xRbBICCMt9l0qEle17IPHz6KV2C-WA",
+                "y": "68G3bNQDrrZ72uGx8Lgi1XZSMhj-ZHMmgBk_jPmT4CQ"
+            }
+        }
+    ],
+    "authentication": [
+        "#bfc7b4bbfc76477c875caed917de3b44vcSigningKey-460b7"
+    ],
+    "assertionMethod": [
+        "#bfc7b4bbfc76477c875caed917de3b44vcSigningKey-460b7"
+    ]
+}
