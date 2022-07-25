@@ -4,6 +4,8 @@ using Microsoft.Identity.Client;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
@@ -218,13 +220,34 @@ namespace AspNetCoreVerifiableCredentials
                     string lastName = presentationResponse["issuers"][0]["claims"]["lastName"].ToString();
 
                     var mgClient = GetGraphClient();
-                    var userFound = await mgClient.Users
+                    var usersFound = await mgClient.Users
                         .Request()
-                        .Filter($"givenName eq '{firstName}' and surname eq '{lastName}'")
+                        .Filter($"givenName eq '{firstName}' and surname eq '{lastName}' and userType eq 'Member'")
                         .GetAsync();
 
-                    var userObjectId = userFound[1].Id;
-                    var userUPN = userFound[1].UserPrincipalName;
+                    // Autodesk specific logic to include only regular accounts and not admin accounts
+                    var userFound = usersFound
+                        .FirstOrDefault(u => !u.EmployeeId.EndsWith("A") && !u.EmployeeId.EndsWith("DA"));
+                    if (userFound == null)
+                    {
+                        var notFoundCacheData = new
+                        {
+                            status = "user_not_found",
+                            message = $"User {firstName} {lastName} not found.",
+                            userFirstName = firstName,
+                            userLastName = lastName,
+                            userUPN = "Unknown",
+                            userObjectId = "Unknown",
+                            tap = "None",
+                            payload = $"userUPN=Unknown, objectId=Unknown, tap=None"
+                            //userFoundPayloadDeleteMe = JsonConvert.SerializeObject(userFound)
+                        };
+                        _cache.Set(state, JsonConvert.SerializeObject(notFoundCacheData));
+                        return BadRequest(new { error = "400", error_description = "User not found" });
+                    }
+
+                    var userObjectId = userFound.Id;
+                    var userUPN = userFound.UserPrincipalName;
 
                     //Cherry on top, get the user's photo, any other information
 
